@@ -23,6 +23,7 @@ virtualFolder:
                 - path: Core/Src/main.c
                 - path: Core/Src/stm32g4xx_it.c
                 - path: Core/Src/stm32g4xx_hal_msp.c
+                - path: Lib/Motor.c
               folders: []
     - name: Drivers
       files: []
@@ -42,6 +43,8 @@ virtualFolder:
             - path: Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_dma_ex.c
             - path: Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr.c
             - path: Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_cortex.c
+            - path: Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_tim.c
+            - path: Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_tim_ex.c
           folders: []
         - name: CMSIS
           files:
@@ -64,6 +67,7 @@ targets:
         - Drivers/STM32G4xx_HAL_Driver/Inc/Legacy
         - Drivers/CMSIS/Device/ST/STM32G4xx/Include
         - Drivers/CMSIS/Include
+        - Lib
         - .cmsis/include
         - MDK-ARM/RTE/_project
       libList: []
