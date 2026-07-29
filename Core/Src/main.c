@@ -24,6 +24,7 @@
 #include "Motor.h"
 #include "display.h"
 #include "SCServo.h"
+#include "task_key.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,11 +49,11 @@ TIM_HandleTypeDef htim3;
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
+UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 StepperMotor motor1;
 StepperMotor motor2;
-volatile uint32_t tim3_irq_count = 0;  // 调试: TIM3 中断计数
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -63,6 +64,7 @@ static void MX_TIM3_Init(void);
 static void MX_UART4_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -106,38 +108,39 @@ int main(void)
   MX_UART4_Init();
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-  /* --- 初始化显示 --- */
+  /* --- 显示 --- */
   Display_Init();
   HAL_Delay(200);
 
-  /* --- 电机1: TIM3_CH1(PA6), DIR=PB0, 暂不用ENA, 限位=PB2 --- */
+  /* --- 电机1: TIM3_CH1(PA6), DIR=PB0 --- */
   Stepper_Init(&motor1, &htim3, TIM_CHANNEL_1,
                GPIOB, MOTOR1_DIR_Pin, NULL, 0,
                GPIOB, Limit_Switch_Pin);
 
-  /* --- 电机2: TIM2_CH1(PA0), DIR=PB3, 暂不用ENA, 暂无限位 --- */
+  /* --- 电机2: TIM2_CH1(PA0), DIR=PB3 --- */
   Stepper_Init(&motor2, &htim2, TIM_CHANNEL_1,
                GPIOB, MOTOR1_DIRB3_Pin, NULL, 0,
                NULL, 0);
 
-  /* 测试: 两电机一起正转 2 圈 → 反转 2 圈 */
+  /* --- 电机测试: 正转2圈 → 反转2圈 --- */
   Stepper_MoveRel(&motor1, 3200, 60);
   Stepper_MoveRel(&motor2, 3200, 60);
   HAL_Delay(4000);
   Stepper_MoveRel(&motor1, -3200, 60);
   Stepper_MoveRel(&motor2, -3200, 60);
 
-  /* --- 舵机测试: ID=1(USART2) 和 ID=3(USART1) 同方向转 3 圈 --- */
-  Servo_SetUART(&huart2);                      // 切到 USART2
+  /* --- 舵机测试: ID=1(USART2) + ID=3(USART1) 同方向转3圈 --- */
+  Servo_SetUART(&huart2);
   EnableTorque(1, 1); WheelMode(1);
   WriteSpe(1, 300, 50);
 
-  Servo_SetUART(&huart1);                      // 切到 USART1
+  Servo_SetUART(&huart1);
   EnableTorque(3, 1); WheelMode(3);
   WriteSpe(3, 300, 50);
 
-  HAL_Delay(3500);                             // 两个一起转 3 圈
+  HAL_Delay(3500);
 
   Servo_SetUART(&huart2);
   WriteSpe(1, 0, 50); EnableTorque(1, 0);
@@ -153,22 +156,20 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    Key_Scan();
+
     static int tick = 0;
     tick++;
-
-    int a0 = (tick)       % 360, d0 = (tick * 3) % 100;
-    int a1 = (tick + 90)  % 360, d1 = (tick * 5) % 100;
-    int a2 = (tick + 180) % 360, d2 = (tick * 6) % 100;
-    int a3 = (tick + 270) % 360, d3 = (tick * 7) % 100;
-
     int x0 = 12 + tick % 5, y0 = 16 + tick % 5;
     int x1 = 13 + tick % 5, y1 = 17 + tick % 5;
     int x2 = 14 + tick % 5, y2 = 18 + tick % 5;
     int x3 = 15 + tick % 5, y3 = 19 + tick % 5;
 
-    Display_UpdateAngles(a0, d0, a1, d1, a2, d2, a3, d3);
+    Display_UpdateAngles(
+        last_key_display, scan.question_num,
+        scan.start_flag, scan.scan,
+        0, 0, 0, 0);
     Display_UpdateCoords(x0, y0, x1, y1, x2, y2, x3, y3);
-    HAL_Delay(200);
   }
   /* USER CODE END 3 */
 }
@@ -481,6 +482,54 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 230400;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart3.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart3, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart3, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -508,11 +557,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : Limit_Switch_Pin */
-  GPIO_InitStruct.Pin = Limit_Switch_Pin;
+  /*Configure GPIO pins : Limit_Switch_Pin KEY1_Pin KEY2_Pin KEY3_Pin */
+  GPIO_InitStruct.Pin = Limit_Switch_Pin|KEY1_Pin|KEY2_Pin|KEY3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(Limit_Switch_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -520,18 +569,14 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-/* HAL 弱回调: TIM_OC 中断 → 转发到 Stepper_IRQHandler */
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM2) {
         Stepper_IRQHandler(&motor2);
     } else if (htim->Instance == TIM3) {
-        tim3_irq_count++;
         Stepper_IRQHandler(&motor1);
     }
 }
-
 /* USER CODE END 4 */
 
 /**

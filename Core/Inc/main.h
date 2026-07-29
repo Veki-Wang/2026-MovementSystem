@@ -65,6 +65,12 @@ void Error_Handler(void);
 #define MOTOR1_ENA_GPIO_Port GPIOB
 #define Limit_Switch_Pin GPIO_PIN_2
 #define Limit_Switch_GPIO_Port GPIOB
+#define KEY1_Pin GPIO_PIN_12
+#define KEY1_GPIO_Port GPIOB
+#define KEY2_Pin GPIO_PIN_13
+#define KEY2_GPIO_Port GPIOB
+#define KEY3_Pin GPIO_PIN_15
+#define KEY3_GPIO_Port GPIOB
 #define MOTOR1_DIRB3_Pin GPIO_PIN_3
 #define MOTOR1_DIRB3_GPIO_Port GPIOB
 #define MOTOR1_ENAB4_Pin GPIO_PIN_4
