@@ -1,12 +1,23 @@
 #include "Motor.h"
 
 /* ============================================================
- * 初始化 — MX_TIM2_Init() 之后调用
+ * 初始化 — MX_TIMx_Init() 之后调用
  * ============================================================ */
-void Stepper_Init(StepperMotor *motor, TIM_HandleTypeDef *htim, uint32_t channel)
+void Stepper_Init(StepperMotor *motor, TIM_HandleTypeDef *htim, uint32_t channel,
+                  GPIO_TypeDef *dir_port, uint16_t dir_pin,
+                  GPIO_TypeDef *ena_port, uint16_t ena_pin,
+                  GPIO_TypeDef *limit_port, uint16_t limit_pin)
 {
     motor->htim        = htim;
     motor->tim_channel = channel;
+
+    motor->dir_port    = dir_port;
+    motor->dir_pin     = dir_pin;
+    motor->ena_port    = ena_port;
+    motor->ena_pin     = ena_pin;
+    motor->limit_port  = limit_port;
+    motor->limit_pin   = limit_pin;
+
     motor->position    = 0;
     motor->target      = 0;
     motor->steps_to_go = 0;
@@ -36,6 +47,13 @@ void Stepper_Init(StepperMotor *motor, TIM_HandleTypeDef *htim, uint32_t channel
     HAL_TIM_OC_ConfigChannel(htim, &sConfigOC, channel);
 }
 
+/* 辅助宏 — 操作当前电机的 GPIO */
+#define _DIR_CW(m)     HAL_GPIO_WritePin((m)->dir_port, (m)->dir_pin, GPIO_PIN_SET)
+#define _DIR_CCW(m)    HAL_GPIO_WritePin((m)->dir_port, (m)->dir_pin, GPIO_PIN_RESET)
+#define _ENA_ON(m)     do { if ((m)->ena_port) HAL_GPIO_WritePin((m)->ena_port, (m)->ena_pin, GPIO_PIN_RESET); } while(0)
+#define _ENA_OFF(m)    do { if ((m)->ena_port) HAL_GPIO_WritePin((m)->ena_port, (m)->ena_pin, GPIO_PIN_SET); } while(0)
+#define _LIMIT_HIT(m)  (HAL_GPIO_ReadPin((m)->limit_port, (m)->limit_pin) == GPIO_PIN_RESET)
+
 /* ============================================================
  * 设置速度 — 连续恒速
  * ============================================================ */
@@ -47,10 +65,10 @@ void Stepper_SetSpeed(StepperMotor *motor, float rpm)
     }
 
     if (rpm > 0.0f) {
-        MOTOR_DIR_CW();
+        _DIR_CW(motor);
         motor->dir = 1;
     } else {
-        MOTOR_DIR_CCW();
+        _DIR_CCW(motor);
         motor->dir = 0;
         rpm = -rpm;
     }
@@ -63,24 +81,24 @@ void Stepper_SetSpeed(StepperMotor *motor, float rpm)
     if (!motor->running) {
         motor->running = 1;
         motor->steps_to_go = 0;
-        MOTOR_ENA_ON();
+        _ENA_ON(motor);
         HAL_TIM_OC_Start_IT(motor->htim, motor->tim_channel);
     }
 }
 
 /* ============================================================
- * 相对移动 — 走 pulses 个脉冲后自动停
+ * 相对移动
  * ============================================================ */
 void Stepper_MoveRel(StepperMotor *motor, int32_t pulses, float rpm)
 {
     if (pulses == 0 || rpm <= 0.0f) return;
 
     if (pulses > 0) {
-        MOTOR_DIR_CW();
+        _DIR_CW(motor);
         motor->dir = 1;
         motor->steps_to_go = pulses;
     } else {
-        MOTOR_DIR_CCW();
+        _DIR_CCW(motor);
         motor->dir = 0;
         motor->steps_to_go = -pulses;
     }
@@ -93,7 +111,7 @@ void Stepper_MoveRel(StepperMotor *motor, int32_t pulses, float rpm)
 
     if (!motor->running) {
         motor->running = 1;
-        MOTOR_ENA_ON();
+        _ENA_ON(motor);
         HAL_TIM_OC_Start_IT(motor->htim, motor->tim_channel);
     }
 }
@@ -116,7 +134,7 @@ void Stepper_Stop(StepperMotor *motor)
     motor->running     = 0;
     motor->steps_to_go = 0;
     motor->ccr_step    = 0;
-    MOTOR_ENA_OFF();
+    _ENA_OFF(motor);
 }
 
 /* ============================================================
@@ -136,27 +154,18 @@ uint8_t Stepper_IsHomed(StepperMotor *motor)
 }
 
 /* ============================================================
- * 回零 — 低速往限位开关方向移动，撞到后归零
- *
- * 工作原理:
- *   1. 往限位开关方向慢速移动 (假设开关在 CW 方向)
- *   2. ISR 中每步检查限位开关
- *   3. 撞到开关 → 立即停止 → position = 0 → homed = 1
- *
- * 接线: PB2 → 限位开关(常开) → GND
- *       内部上拉, 撞到→LOW
+ * 回零
  * ============================================================ */
 void Stepper_Home(StepperMotor *motor, float speed_rpm)
 {
-    if (speed_rpm <= 0.0f) speed_rpm = 30.0f;  // 默认慢速回零
+    if (speed_rpm <= 0.0f) speed_rpm = 30.0f;
 
     motor->homing = 1;
     motor->homed  = 0;
 
-    /* 往限位开关方向走: CW (dir=1) */
-    MOTOR_DIR_CW();
+    _DIR_CW(motor);
     motor->dir  = 1;
-    motor->steps_to_go = 0;  // 不限步数, 撞到才停
+    motor->steps_to_go = 0;
     motor->ccr_step = Stepper_RPM_to_CCR(speed_rpm);
 
     motor->htim->Instance->CNT = 0;
@@ -164,19 +173,13 @@ void Stepper_Home(StepperMotor *motor, float speed_rpm)
 
     if (!motor->running) {
         motor->running = 1;
-        MOTOR_ENA_ON();
+        _ENA_ON(motor);
         HAL_TIM_OC_Start_IT(motor->htim, motor->tim_channel);
     }
 }
 
 /* ============================================================
- * 设置软限位 — 回零后限制电机活动范围
- *
- *   min: 最小脉冲值 (通常 ≤0, 零点往反方向可走)
- *   max: 最大脉冲值 (行程上限, 例如 XY 轴行程 = N 脉冲)
- *
- *   示例: Stepper_SetSoftLimit(&motor, -100, 10000);
- *         允许电机从零点反走 100 脉冲, 正走 10000 脉冲
+ * 设置软限位
  * ============================================================ */
 void Stepper_SetSoftLimit(StepperMotor *motor, int32_t min, int32_t max)
 {
@@ -185,7 +188,7 @@ void Stepper_SetSoftLimit(StepperMotor *motor, int32_t min, int32_t max)
 }
 
 /* ============================================================
- * 定时器中断回调 — HAL_TIM_OC_DelayElapsedCallback() 中调用
+ * 定时器中断回调
  * ============================================================ */
 void Stepper_IRQHandler(StepperMotor *motor)
 {
@@ -197,10 +200,8 @@ void Stepper_IRQHandler(StepperMotor *motor)
     motor->edge_toggle &= 1;
 
     if (motor->edge_toggle == 1) {
-        /* 上升沿: 一个脉冲完成 */
-
-        /* ★ 回零检测 ★ */
-        if (motor->homing && MOTOR_LIMIT_HIT()) {
+        /* 回零检测 */
+        if (motor->homing && _LIMIT_HIT(motor)) {
             Stepper_Stop(motor);
             motor->position = 0;
             motor->homed    = 1;
@@ -214,7 +215,7 @@ void Stepper_IRQHandler(StepperMotor *motor)
             motor->position--;
         }
 
-        /* ★ 软限位保护 ★ */
+        /* 软限位 */
         if (motor->homed) {
             if (motor->position >= motor->soft_max && motor->dir == 1) {
                 Stepper_Stop(motor);
@@ -235,7 +236,7 @@ void Stepper_IRQHandler(StepperMotor *motor)
         }
     }
 
-    /* 设置下一个比较值 */
+    /* 下一个比较值 */
     uint32_t current_ccr = motor->htim->Instance->CCR1;
     uint32_t next_ccr    = current_ccr + motor->ccr_step;
 

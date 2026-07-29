@@ -41,15 +41,19 @@
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
 StepperMotor motor1;
+StepperMotor motor2;
+volatile uint32_t tim3_irq_count = 0;  // 调试: TIM3 中断计数
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -89,22 +93,24 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-  Stepper_Init(&motor1, &htim2, TIM_CHANNEL_1);
+  /* --- 电机1: TIM3_CH1(PA6), DIR=PB0, 暂不用ENA, 限位=PB2 --- */
+  Stepper_Init(&motor1, &htim3, TIM_CHANNEL_1,
+               GPIOB, MOTOR1_DIR_Pin, NULL, 0,
+               GPIOB, Limit_Switch_Pin);
 
-  /* 1. 先回零 (慢速 30 RPM 往限位开关走) */
-//  Stepper_Home(&motor1, 30);
-//  while (!Stepper_IsHomed(&motor1)) {}
-//  HAL_Delay(500);
+  /* --- 电机2: TIM2_CH1(PA0), DIR=PB3, 暂不用ENA, 暂无限位 --- */
+  Stepper_Init(&motor2, &htim2, TIM_CHANNEL_1,
+               GPIOB, MOTOR1_DIRB3_Pin, NULL, 0,
+               NULL, 0);
 
-  /* 2. 设置软限位: 允许 0 ~ 3200 脉冲 (2圈) 范围 */
-//  Stepper_SetSoftLimit(&motor1, 0, 3200);
-//  HAL_Delay(100);
-
-  /* 3. 测试: 正转 2 圈 → 反转 2 圈, 有软限位保护 */
-  Stepper_MoveRel(&motor1, 3200, 60);   // CW 2圈
+  /* 测试: 两电机一起正转 2 圈 → 反转 2 圈 */
+  Stepper_MoveRel(&motor1, 3200, 60);
+  Stepper_MoveRel(&motor2, 3200, 60);
   HAL_Delay(4000);
-  Stepper_MoveRel(&motor1, -3200, 60);  // CCW 2圈, 回到零点
+  Stepper_MoveRel(&motor1, -3200, 60);
+  Stepper_MoveRel(&motor2, -3200, 60);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -223,6 +229,65 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 169;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 65535;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_OC_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_TOGGLE;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_OC_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+  HAL_TIM_MspPostInit(&htim3);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -240,14 +305,20 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, MOTOR_DIR_Pin|MOTOR_ENA_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, MOTOR1_DIR_Pin|MOTOR1_ENA_Pin|MOTOR1_DIRB3_Pin|MOTOR1_ENAB4_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : MOTOR_DIR_Pin MOTOR_ENA_Pin */
-  GPIO_InitStruct.Pin = MOTOR_DIR_Pin|MOTOR_ENA_Pin;
+  /*Configure GPIO pins : MOTOR1_DIR_Pin MOTOR1_ENA_Pin MOTOR1_DIRB3_Pin MOTOR1_ENAB4_Pin */
+  GPIO_InitStruct.Pin = MOTOR1_DIR_Pin|MOTOR1_ENA_Pin|MOTOR1_DIRB3_Pin|MOTOR1_ENAB4_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Limit_Switch_Pin */
+  GPIO_InitStruct.Pin = Limit_Switch_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(Limit_Switch_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -260,6 +331,9 @@ static void MX_GPIO_Init(void)
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM2) {
+        Stepper_IRQHandler(&motor2);
+    } else if (htim->Instance == TIM3) {
+        tim3_irq_count++;
         Stepper_IRQHandler(&motor1);
     }
 }
