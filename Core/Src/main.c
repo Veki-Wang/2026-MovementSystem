@@ -92,10 +92,19 @@ int main(void)
   /* USER CODE BEGIN 2 */
   Stepper_Init(&motor1, &htim2, TIM_CHANNEL_1);
 
-  /* 简单测试: 正转1圈 → 停1秒 → 反转1圈 → 停 */
-  Stepper_MoveRel(&motor1, 1600, 60);   // CW 1圈, 60 RPM
-  HAL_Delay(3000);                       // 等3秒让电机转完
-  Stepper_MoveRel(&motor1, -1600, 60);  // CCW 1圈, 60 RPM
+  /* 1. 先回零 (慢速 30 RPM 往限位开关走) */
+//  Stepper_Home(&motor1, 30);
+//  while (!Stepper_IsHomed(&motor1)) {}
+//  HAL_Delay(500);
+
+  /* 2. 设置软限位: 允许 0 ~ 3200 脉冲 (2圈) 范围 */
+//  Stepper_SetSoftLimit(&motor1, 0, 3200);
+//  HAL_Delay(100);
+
+  /* 3. 测试: 正转 2 圈 → 反转 2 圈, 有软限位保护 */
+  Stepper_MoveRel(&motor1, 3200, 60);   // CW 2圈
+  HAL_Delay(4000);
+  Stepper_MoveRel(&motor1, -3200, 60);  // CCW 2圈, 回到零点
   /* USER CODE END 2 */
 
   /* Infinite loop */

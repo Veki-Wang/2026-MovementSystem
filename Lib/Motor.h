@@ -40,6 +40,11 @@
 #define MOTOR_ENA_ON()          /* 悬空, 暂不用 */
 #define MOTOR_ENA_OFF()         /* 悬空, 暂不用 */
 
+/* 限位开关 (常开, 撞到→LOW) */
+#define MOTOR_LIMIT_PORT        GPIOB
+#define MOTOR_LIMIT_PIN         GPIO_PIN_2
+#define MOTOR_LIMIT_HIT()       (HAL_GPIO_ReadPin(MOTOR_LIMIT_PORT, MOTOR_LIMIT_PIN) == GPIO_PIN_RESET)
+
 typedef struct {
     TIM_HandleTypeDef   *htim;
     uint32_t             tim_channel;
@@ -52,6 +57,10 @@ typedef struct {
     uint8_t              edge_toggle;
     uint8_t              running;
     uint8_t              dir;
+    uint8_t              homing;        // 正在回零中
+    uint8_t              homed;         // 已完成回零
+    int32_t              soft_min;      // 软限位最小值 (脉冲数)
+    int32_t              soft_max;      // 软限位最大值 (脉冲数)
 } StepperMotor;
 
 void Stepper_Init(StepperMotor *motor, TIM_HandleTypeDef *htim, uint32_t channel);
@@ -60,6 +69,9 @@ void Stepper_MoveRel(StepperMotor *motor, int32_t pulses, float rpm);
 void Stepper_MoveAbs(StepperMotor *motor, int32_t target_pos, float rpm);
 void Stepper_Stop(StepperMotor *motor);
 uint8_t Stepper_IsDone(StepperMotor *motor);
+uint8_t Stepper_IsHomed(StepperMotor *motor);
+void Stepper_Home(StepperMotor *motor, float speed_rpm);
+void Stepper_SetSoftLimit(StepperMotor *motor, int32_t min, int32_t max);
 void Stepper_IRQHandler(StepperMotor *motor);
 
 static inline uint32_t Stepper_RPM_to_CCR(float rpm)
