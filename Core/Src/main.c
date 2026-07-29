@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "Motor.h"
+#include "display.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,6 +44,8 @@
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 
+UART_HandleTypeDef huart4;
+
 /* USER CODE BEGIN PV */
 StepperMotor motor1;
 StepperMotor motor2;
@@ -54,6 +57,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_UART4_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -94,7 +98,12 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
+  MX_UART4_Init();
   /* USER CODE BEGIN 2 */
+  /* --- 初始化显示 --- */
+  Display_Init();
+  HAL_Delay(200);
+
   /* --- 电机1: TIM3_CH1(PA6), DIR=PB0, 暂不用ENA, 限位=PB2 --- */
   Stepper_Init(&motor1, &htim3, TIM_CHANNEL_1,
                GPIOB, MOTOR1_DIR_Pin, NULL, 0,
@@ -120,6 +129,22 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    static int tick = 0;
+    tick++;
+
+    int a0 = (tick)       % 360, d0 = (tick * 3) % 100;
+    int a1 = (tick + 90)  % 360, d1 = (tick * 5) % 100;
+    int a2 = (tick + 180) % 360, d2 = (tick * 6) % 100;
+    int a3 = (tick + 270) % 360, d3 = (tick * 7) % 100;
+
+    int x0 = 12 + tick % 5, y0 = 16 + tick % 5;
+    int x1 = 13 + tick % 5, y1 = 17 + tick % 5;
+    int x2 = 14 + tick % 5, y2 = 18 + tick % 5;
+    int x3 = 15 + tick % 5, y3 = 19 + tick % 5;
+
+    Display_UpdateAngles(a0, d0, a1, d1, a2, d2, a3, d3);
+    Display_UpdateCoords(x0, y0, x1, y1, x2, y2, x3, y3);
+    HAL_Delay(200);
   }
   /* USER CODE END 3 */
 }
@@ -288,6 +313,46 @@ static void MX_TIM3_Init(void)
 }
 
 /**
+  * @brief UART4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_UART4_Init(void)
+{
+
+  /* USER CODE BEGIN UART4_Init 0 */
+
+  /* USER CODE END UART4_Init 0 */
+
+  /* USER CODE BEGIN UART4_Init 1 */
+
+  /* USER CODE END UART4_Init 1 */
+  huart4.Instance = UART4;
+  huart4.Init.BaudRate = 115200;
+  huart4.Init.WordLength = UART_WORDLENGTH_8B;
+  huart4.Init.StopBits = UART_STOPBITS_1;
+  huart4.Init.Parity = UART_PARITY_NONE;
+  huart4.Init.Mode = UART_MODE_TX_RX;
+  huart4.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart4.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart4.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart4.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart4.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* FIFO 默认已关闭, 以下三行 CubeMX 生成有 bug, 屏蔽之 */
+//  if (HAL_UARTEx_SetTxFifoThreshold(&huart4, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK) { Error_Handler(); }
+//  if (HAL_UARTEx_SetRxFifoThreshold(&huart4, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK) { Error_Handler(); }
+//  if (HAL_UARTEx_DisableFifoMode(&huart4) != HAL_OK) { Error_Handler(); }
+  /* USER CODE BEGIN UART4_Init 2 */
+
+  /* USER CODE END UART4_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -303,6 +368,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, MOTOR1_DIR_Pin|MOTOR1_ENA_Pin|MOTOR1_DIRB3_Pin|MOTOR1_ENAB4_Pin, GPIO_PIN_RESET);

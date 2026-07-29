@@ -71,7 +71,7 @@ void Error_Handler(void);
 #define MOTOR1_ENAB4_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-
+extern UART_HandleTypeDef huart4;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
