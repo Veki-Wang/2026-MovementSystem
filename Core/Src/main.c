@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "Motor.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,7 +43,7 @@
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
-
+StepperMotor motor1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -90,7 +90,12 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
+  Stepper_Init(&motor1, &htim2, TIM_CHANNEL_1);
 
+  /* 简单测试: 正转1圈 → 停1秒 → 反转1圈 → 停 */
+  Stepper_MoveRel(&motor1, 1600, 60);   // CW 1圈, 60 RPM
+  HAL_Delay(3000);                       // 等3秒让电机转完
+  Stepper_MoveRel(&motor1, -1600, 60);  // CCW 1圈, 60 RPM
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -241,6 +246,14 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+/* HAL 弱回调: TIM_OC 中断 → 转发到 Stepper_IRQHandler */
+void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM2) {
+        Stepper_IRQHandler(&motor1);
+    }
+}
 
 /* USER CODE END 4 */
 
