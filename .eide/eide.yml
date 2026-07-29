@@ -3,7 +3,9 @@ name: project
 type: ARM
 deviceName: null
 packDir: .pack/Keil/STM32G4xx_DFP.1.1.0
-srcDirs: []
+srcDirs:
+  - SCSLib
+  - Lib
 virtualFolder:
   name: <virtual_root>
   files: []
@@ -74,6 +76,7 @@ targets:
         - Lib
         - .cmsis/include
         - MDK-ARM/RTE/_project
+        - SCSLib
       libList: []
     excludeList: []
     settings:
@@ -196,7 +199,7 @@ targets:
             language-c: c99
             language-cpp: c++11
             one-elf-section-per-function: true
-            optimization: level-0
+            optimization: level-1
             warnings: ac5-like-warnings
           global:
             output-debug-info: enable
