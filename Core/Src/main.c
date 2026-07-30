@@ -60,6 +60,7 @@ UART_HandleTypeDef huart3;
 /* USER CODE BEGIN PV */
 StepperMotor motor1;
 StepperMotor motor2;
+int oled_sent_flag = 0;   /* OLED 发送状态 */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -132,115 +133,17 @@ int main(void)
   Stepper_Init(&motor2, &htim2, TIM_CHANNEL_1,
                GPIOB, MOTOR2_DIR_Pin, NULL, 0,
                NULL, 0);
-  /* --- 蜂鸣器测试: 响3声 --- */
-  for (int i = 0; i < 3; i++) {
-      BEEP_ON();  HAL_Delay(200);
-      BEEP_OFF(); HAL_Delay(200);
-  }
 
-  /* --- OLED 测试 (I2C2, 0.96寸 128x64) --- */
   OLED_Init();
-  OLED_Clear();
 
-  /* 第1行: 标题 */
-  OLED_ShowString(0, 0, "OLED Test", OLED_8X16);
-
-  /* 第2行: 画一条横线 */
-  OLED_DrawLine(0, 18, 127, 18);
-
-  /* 第3行: 显示数字 */
-  OLED_ShowString(0, 22, "Num:", OLED_6X8);
-  OLED_ShowNum(48, 22, 12345, 5, OLED_6X8);
-
-  /* 第4行: 浮点数 */
-  OLED_ShowString(0, 32, "Val:", OLED_6X8);
-  OLED_ShowFloatNum(30, 32, 3.14, 1, 2, OLED_6X8);
-
-  /* 第5行: 矩形框 */
-  OLED_DrawRectangle(0, 42, 60, 20, OLED_UNFILLED);
-  OLED_ShowString(65, 44, "OK!", OLED_8X16);
-
-  OLED_Update();
-
-  /* --- 丢步检测: Limit1→Limit3 再回到 Limit1, 正反脉冲差 = 丢步 --- */
-  /* ① 先慢速退回 Limit1 确保起点一致 */
-  Stepper_SetSpeed(&motor1, -30);
-  while (HAL_GPIO_ReadPin(Limit1_Switch_GPIO_Port, Limit1_Switch_Pin) != GPIO_PIN_RESET)
-      HAL_Delay(1);  HAL_Delay(100);
-
-  /* ② 正向: Limit1 → Limit3, 记脉冲 */
-  motor1.position = 0;
-  Stepper_SetSpeed(&motor1, 150);
-  while (HAL_GPIO_ReadPin(Limit3_Switch_GPIO_Port, Limit3_Switch_Pin) != GPIO_PIN_RESET)
-      HAL_Delay(1);
-  Stepper_Stop(&motor1);
-  int32_t fwd = motor1.position;                                /* 正向实际脉冲 */
-  HAL_Delay(100);
-
-  /* ③ 反向: Limit3 → Limit1, 记脉冲 */
-  motor1.position = 0;
-  Stepper_SetSpeed(&motor1, -150);
-  while (HAL_GPIO_ReadPin(Limit1_Switch_GPIO_Port, Limit1_Switch_Pin) != GPIO_PIN_RESET)
-      HAL_Delay(1);
-  Stepper_Stop(&motor1);
-  int32_t ret = -motor1.position;                               /* 反向实际脉冲 */
-
-  int32_t loss = (fwd > ret) ? (fwd - ret) : (ret - fwd);
-
-  snprintf(uart_tx_buffer, sizeof(uart_tx_buffer),
-           "SET_NUM(1,%d,0);\r\n"                                /* 正向脉冲 */
-           "SET_NUM(5,%d,0);\r\n"                                /* 反向脉冲 */
-           "SET_NUM(6,%d,0);\r\n",                               /* 丢步 */
-           (int)fwd, (int)ret, (int)loss);
-  UART4_Send(uart_tx_buffer);
-  // // /* --- 电机1: 往返验证 — Limit1→Limit3 正转计数, Limit3→Limit1 反转计数 --- */
-  // motor1.position = 0;                                           /* 从 Limit1 出发, 清零 */
-  // Stepper_SetSpeed(&motor1, 150);                                /* 正转 → Limit3 */
-  // while (HAL_GPIO_ReadPin(Limit3_Switch_GPIO_Port, Limit3_Switch_Pin) != GPIO_PIN_RESET) {
+  // Stepper_SetSpeed(&motor1, -30);
+  // while (HAL_GPIO_ReadPin(Limit1_Switch_GPIO_Port, Limit1_Switch_Pin) != GPIO_PIN_RESET)
   //     HAL_Delay(1);
-  // }
-  // Stepper_Stop(&motor1);
-  // int32_t fwd = motor1.position;                                 /* 正向脉冲数 */
-  // HAL_Delay(100);
-
-  // motor1.position = 0;                                           /* 从 Limit3 折返, 清零 */
-  // Stepper_SetSpeed(&motor1, -150);                               /* 反转 → Limit1 */
-  // while (HAL_GPIO_ReadPin(Limit1_Switch_GPIO_Port, Limit1_Switch_Pin) != GPIO_PIN_RESET) {
-  //     HAL_Delay(1);
-  // }
-  // Stepper_Stop(&motor1);
-  // int32_t ret = -motor1.position;                                /* 反向脉冲数(取绝对值) */
-
-  // /* --- 串口屏显示: ID1=正向, ID2=反向, ID3=差值 --- */
-  // snprintf(uart_tx_buffer, sizeof(uart_tx_buffer),
-  //          "SET_NUM(1,%d,2);\r\n"                                /* 正向脉冲 */
-  //          "SET_NUM(5,%d,2);\r\n"                                /* 反向脉冲 */
-  //          "SET_NUM(6,%d,2);\r\n",                               /* 差值 (越小越可信) */
-  //          (int)(fwd * 100), (int)(ret * 100),
-  //          (int)((fwd - ret) * 100));
-  // UART4_Send(uart_tx_buffer);
- 
-  /* --- 舵机测试: ID=1(USART2) + ID=3(USART1) 同方向转3圈 --- */
-  Servo_SetUART(&huart2);
-  EnableTorque(1, 1); WheelMode(1);
-  WriteSpe(1, 300, 50);
-
-  Servo_SetUART(&huart1);
-  EnableTorque(3, 1); WheelMode(3);
-  WriteSpe(3, 300, 50);
-
-  HAL_Delay(3500);
-
-  Servo_SetUART(&huart2);
-  WriteSpe(1, 0, 50); EnableTorque(1, 0);
-
-  Servo_SetUART(&huart1);
-  WriteSpe(3, 0, 50); EnableTorque(3, 0);
+ /* ② 正向: Limit1 → Limit3, 记脉冲 */
+  motor1.position = 0;
 
   /* --- 视觉通讯 --- */
   Vision_Init();
-  Vision_SendQuestion(scan.question_num);
-  Display_UpdateQuestionNum(scan.question_num);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -252,22 +155,31 @@ int main(void)
     /* USER CODE BEGIN 3 */
     Key_Scan();
 
-    /* --- 题号变化 → 更新串口屏 ID20, ID23 清零 --- */
+    
+
+            OLED_ShowString(0, 0, "Q:", OLED_8X16);
+            OLED_ShowNum(16, 0, scan.question_num, 1, OLED_8X16);
+            OLED_ShowString(40, 0, "S:", OLED_8X16);
+            OLED_ShowNum(56, 0, scan.state, 1, OLED_8X16);
+
+            OLED_ShowString(0, 24, "P:", OLED_8X16);
+            OLED_ShowSignedNum(16, 24, motor1.position, 8, OLED_8X16);
+
+            OLED_Update();
+    
+
+    /* --- 题号变化 → 更新串口屏 + 复位视觉 --- */
     {
         static int16_t last_qnum = 1;
         if (scan.question_num != last_qnum) {
-            Display_UpdateQuestionNum(scan.question_num);
-            Display_UpdateSentFlag(0);
+            Vision_Reset();
             last_qnum = scan.question_num;
         }
     }
 
-    /* --- KEY2 按下 → 发送题号给视觉, ID23 置 1 --- */
-    if (scan.send_question) {
+    /* --- state==1 → 持续发送题号给视觉 --- */
+    if (scan.state) {
         Vision_SendQuestion(scan.question_num);
-        Vision_Reset();
-        Display_UpdateSentFlag(1);
-        scan.send_question = 0;   /* 消费标志 */
     }
 
     /* --- 视觉数据就绪 → 更新串口屏 --- */
@@ -287,6 +199,7 @@ int main(void)
                              d.xs[7], d.ys[7]);
         Display_UpdateRxCount(Vision_GetRxCount());
     }
+
   }
   /* USER CODE END 3 */
 }

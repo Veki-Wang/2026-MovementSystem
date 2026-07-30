@@ -11,28 +11,6 @@ void Display_Init(void)
 }
 
 /* ============================================================
- * 更新题号显示
- *   控件 ID: 16
- * ============================================================ */
-void Display_UpdateQuestionNum(int16_t qnum)
-{
-    snprintf(uart_tx_buffer, sizeof(uart_tx_buffer),
-             "SET_NUM(16,%d,0);\r\n", qnum);
-    UART4_Send(uart_tx_buffer);
-}
-
-/* ============================================================
- * 更新发送标志
- *   控件 ID: 17 — 已发送=1, 未发送=0
- * ============================================================ */
-void Display_UpdateSentFlag(int16_t val)
-{
-    snprintf(uart_tx_buffer, sizeof(uart_tx_buffer),
-             "SET_NUM(17,%d,0);\r\n", val);
-    UART4_Send(uart_tx_buffer);
-}
-
-/* ============================================================
  * 更新收包计数 (调试用)
  *   控件 ID: 27
  * ============================================================ */
@@ -40,6 +18,28 @@ void Display_UpdateRxCount(uint16_t count)
 {
     snprintf(uart_tx_buffer, sizeof(uart_tx_buffer),
              "SET_NUM(27,%d,0);\r\n", count);
+    UART4_Send(uart_tx_buffer);
+}
+
+/* ============================================================
+ * 更新题号
+ *   控件 ID: 16
+ * ============================================================ */
+void Display_UpdateQuestionNum(int16_t qnum)
+{
+    snprintf(uart_tx_buffer, sizeof(uart_tx_buffer),
+             "SET_NUM(16,%d,0);\r\n", (int)qnum);
+    UART4_Send(uart_tx_buffer);
+}
+
+/* ============================================================
+ * 更新发送标志
+ *   控件 ID: 17
+ * ============================================================ */
+void Display_UpdateSentFlag(int16_t val)
+{
+    snprintf(uart_tx_buffer, sizeof(uart_tx_buffer),
+             "SET_NUM(17,%d,0);\r\n", (int)val);
     UART4_Send(uart_tx_buffer);
 }
 
@@ -78,14 +78,14 @@ void Display_UpdateCoords(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
              "SET_NUM(14,%d,2);\r\n"
              "SET_NUM(11,%d,2);\r\n"
              "SET_NUM(15,%d,2);\r\n"
+             "SET_NUM(16,%d,2);\r\n"
+             "SET_NUM(17,%d,2);\r\n"
              "SET_NUM(18,%d,2);\r\n"
              "SET_NUM(19,%d,2);\r\n"
              "SET_NUM(20,%d,2);\r\n"
              "SET_NUM(21,%d,2);\r\n"
              "SET_NUM(22,%d,2);\r\n"
-             "SET_NUM(23,%d,2);\r\n"
-             "SET_NUM(24,%d,2);\r\n"
-             "SET_NUM(25,%d,2);\r\n",
+             "SET_NUM(23,%d,2);\r\n",
              x0, y0, x1, y1, x2, y2, x3, y3,
              x4, y4, x5, y5, x6, y6, x7, y7);
     UART4_Send(uart_tx_buffer);

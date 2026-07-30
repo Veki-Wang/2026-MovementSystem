@@ -1,6 +1,6 @@
 #include "task_key.h"
 
-ScanInit_t scan = {1, 0, 0};   // 默认题号1, 未发送, 扫描模式0
+ScanInit_t scan = {1, 0, 0};   // 默认题号1, state=0, 扫描模式0
 int last_key_display = 0;       // 给屏显示用的按键值
 static volatile unsigned char Key_Code = 0;
 /**
@@ -73,7 +73,7 @@ void key_task(void)
     }
     else if (keyValue == 2)
     {
-        scan.send_question = 1;    // KEY2: 发送题号
+        scan.state = !scan.state;  // KEY2: 轮询 0/1
     }
     // else if (keyValue == 3)  // KEY3 暂时不用
     // {

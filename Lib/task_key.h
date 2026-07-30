@@ -8,7 +8,7 @@
 /* --- 扫描/任务状态 --- */
 typedef struct {
     int  question_num;   // 当前题号 1~3 (KEY1 轮询)
-    int  send_question;  // 发送题号标志 (KEY2 触发, 主循环消费后清零)
+    int  state;          // 发送状态 0/1 (KEY2 轮询)
     int  scan;           // 扫描模式 0/1/2 (KEY3 轮询)
 } ScanInit_t;
 

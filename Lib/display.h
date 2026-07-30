@@ -16,8 +16,6 @@
  * ============================================================ */
 
 void Display_Init(void);
-void Display_UpdateQuestionNum(int16_t qnum);
-void Display_UpdateSentFlag(int16_t val);
 void Display_UpdateRxCount(uint16_t count);
 void Display_UpdateAngles(int16_t a0, int16_t a1, int16_t a2, int16_t a3);
 void Display_UpdateCoords(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
