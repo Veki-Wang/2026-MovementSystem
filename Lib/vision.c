@@ -8,7 +8,7 @@ VisionData_t vision_data = {0};
 /* ============================================================
  * 静态变量 — 状态机 + 调试计数
  * ============================================================ */
-static uint8_t  rx_buf[VISION_RX_NUM];   /* 帧缓冲 26 bytes */
+static uint8_t  rx_buf[VISION_RX_NUM];   /* 帧缓冲 42 bytes */
 static uint8_t  vf_idx = 0;              /* 当前写入位置 */
 static uint32_t vf_last_tick = 0;        /* 上一字节时间戳 */
 static uint16_t rx_pkt_count = 0;        /* 成功收包计数 */
@@ -39,15 +39,14 @@ void Vision_ReArmRX(void)
 
 /* ============================================================
  * Vision_SendQuestion — 发送题号给视觉
- *   帧格式: A5 + int16(LE) + 5A, 共 4 字节
+ *   帧格式: A5 + uint8 + 5A, 共 3 字节
  * ============================================================ */
 void Vision_SendQuestion(int16_t question_num)
 {
     uint8_t tx[VISION_TX_NUM];
     tx[0] = VISION_TX_HEAD;                         /* A5 */
-    tx[1] = (uint8_t)(question_num & 0xFF);         /* 低字节 */
-    tx[2] = (uint8_t)((question_num >> 8) & 0xFF);  /* 高字节 */
-    tx[3] = VISION_TX_TAIL;                         /* 5A */
+    tx[1] = (uint8_t)(question_num & 0xFF);         /* 题号 1~3 */
+    tx[2] = VISION_TX_TAIL;                         /* 5A */
 
     HAL_UART_Transmit(&huart3, tx, VISION_TX_NUM, 10);
 }
@@ -86,21 +85,23 @@ void Vision_FeedByte(uint8_t ch)
     rx_buf[vf_idx++] = ch;
 
     if (vf_idx < VISION_RX_NUM) {
-        return;    /* 未收满 26 字节, 继续等待 */
+        return;    /* 未收满 42 字节, 继续等待 */
     }
 
     /* ========== 状态 3: 收满, 校验帧尾 6B ========== */
     if (rx_buf[VISION_RX_NUM - 1] == VISION_RX_TAIL) {
         /*
          * 数据布局 (从 rx_buf[1] 开始, 每个 int16 = 2 bytes, LE):
-         *   [ 1.. 2] 角度1, [ 3.. 4] 角度2, [ 5.. 6] 角度3, [ 7.. 8] 角度4
-         *   [ 9..10] X1,    [11..12] X2,    [13..14] X3,    [15..16] X4
-         *   [17..18] Y1,    [19..20] Y2,    [21..22] Y3,    [23..24] Y4
+         *   [ 1.. 8] 角度1~4  (4×int16)
+         *   [ 9..24] X1~X8    (8×int16)
+         *   [25..40] Y1~Y8    (8×int16)
          */
-        for (uint8_t i = 0; i < VISION_TARGETS; i++) {
+        for (uint8_t i = 0; i < VISION_ANGLE_NUM; i++) {
             vision_data.angles[i] = get_int16(&rx_buf[1  + i * 2]);
+        }
+        for (uint8_t i = 0; i < VISION_COORD_NUM; i++) {
             vision_data.xs[i]     = get_int16(&rx_buf[9  + i * 2]);
-            vision_data.ys[i]     = get_int16(&rx_buf[17 + i * 2]);
+            vision_data.ys[i]     = get_int16(&rx_buf[25 + i * 2]);
         }
 
         vision_data.data_ready = 1;
@@ -142,8 +143,10 @@ uint8_t Vision_DataReady(void)
 void Vision_GetData(VisionData_t *out)
 {
     if (out) {
-        for (uint8_t i = 0; i < VISION_TARGETS; i++) {
+        for (uint8_t i = 0; i < VISION_ANGLE_NUM; i++) {
             out->angles[i] = vision_data.angles[i];
+        }
+        for (uint8_t i = 0; i < VISION_COORD_NUM; i++) {
             out->xs[i]     = vision_data.xs[i];
             out->ys[i]     = vision_data.ys[i];
         }

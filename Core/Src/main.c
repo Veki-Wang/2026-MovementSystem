@@ -192,7 +192,11 @@ int main(void)
         Display_UpdateCoords(d.xs[0], d.ys[0],
                              d.xs[1], d.ys[1],
                              d.xs[2], d.ys[2],
-                             d.xs[3], d.ys[3]);
+                             d.xs[3], d.ys[3],
+                             d.xs[4], d.ys[4],
+                             d.xs[5], d.ys[5],
+                             d.xs[6], d.ys[6],
+                             d.xs[7], d.ys[7]);
         Display_UpdateRxCount(Vision_GetRxCount());
     }
   }

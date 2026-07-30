@@ -9,31 +9,32 @@ extern UART_HandleTypeDef huart3;
 /* ============================================================
  * 视觉通讯模块 (USART3, 230400 bps)
  *
- *  TX (MCU → 视觉): A5 + 题号(int16 LE) + 5A  (4 bytes)
- *  RX (视觉 → MCU): B6 + 角度1~4(int16 LE) + X1~4(int16 LE)
- *                       + Y1~4(int16 LE) + 6B
- *                   每包 26 bytes, 一次包含全部 4 个目标
+ *  TX (MCU → 视觉): A5 + 题号(uint8) + 5A  (3 bytes)
+ *  RX (视觉 → MCU): B6 + 角度1~4(int16 LE) + X1~8(int16 LE)
+ *                       + Y1~8(int16 LE) + 6B
+ *                   每包 42 bytes, 一次包含全部 8 个目标 (4角度+8X+8Y)
  *  ★ 所有 int16 均为百位数 (实际值 × 100)
  * ============================================================ */
 
 /* --- 帧格式常量 --- */
 #define VISION_TX_HEAD      0xA5
 #define VISION_TX_TAIL      0x5A
-#define VISION_TX_NUM       4       /* HEAD + int16(2) + TAIL */
+#define VISION_TX_NUM       3       /* HEAD + uint8(1) + TAIL */
 
 #define VISION_RX_HEAD      0xB6
 #define VISION_RX_TAIL      0x6B
-#define VISION_RX_NUM       26      /* HEAD + 12×int16(24) + TAIL */
+#define VISION_RX_NUM       42      /* HEAD + 20×int16(40) + TAIL */
 
 #define VISION_TIMEOUT      50      /* 超时 ms, 半截包作废 */
-#define VISION_TARGETS      4       /* 目标数量 */
+#define VISION_ANGLE_NUM    4       /* 角度数量 */
+#define VISION_COORD_NUM    8       /* 坐标数量 (X/Y 各 8 个) */
 
 /* --- 视觉数据结构 --- */
 typedef struct {
-    int16_t  angles[VISION_TARGETS];   /* 4 个目标的角度 (百位数) */
-    int16_t  xs[VISION_TARGETS];       /* 4 个目标的 X 坐标 (百位数) */
-    int16_t  ys[VISION_TARGETS];       /* 4 个目标的 Y 坐标 (百位数) */
-    uint8_t  data_ready;               /* 数据就绪 */
+    int16_t  angles[VISION_ANGLE_NUM];  /* 4 个目标的角度 (百位数) */
+    int16_t  xs[VISION_COORD_NUM];      /* 8 个目标的 X 坐标 (百位数) */
+    int16_t  ys[VISION_COORD_NUM];      /* 8 个目标的 Y 坐标 (百位数) */
+    uint8_t  data_ready;                /* 数据就绪 */
 } VisionData_t;
 
 extern VisionData_t vision_data;
