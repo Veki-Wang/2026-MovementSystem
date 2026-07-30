@@ -25,6 +25,7 @@
 #include "display.h"
 #include "SCServo.h"
 #include "task_key.h"
+#include "vision.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -147,6 +148,11 @@ int main(void)
 
   Servo_SetUART(&huart1);
   WriteSpe(3, 0, 50); EnableTorque(3, 0);
+
+  /* --- 视觉通讯 --- */
+  Vision_Init();
+  Vision_SendQuestion(scan.question_num);
+  Display_UpdateQuestionNum(scan.question_num);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -158,18 +164,37 @@ int main(void)
     /* USER CODE BEGIN 3 */
     Key_Scan();
 
-    static int tick = 0;
-    tick++;
-    int x0 = 12 + tick % 5, y0 = 16 + tick % 5;
-    int x1 = 13 + tick % 5, y1 = 17 + tick % 5;
-    int x2 = 14 + tick % 5, y2 = 18 + tick % 5;
-    int x3 = 15 + tick % 5, y3 = 19 + tick % 5;
+    /* --- 题号变化 → 更新串口屏 ID20, ID23 清零 --- */
+    {
+        static int16_t last_qnum = 1;
+        if (scan.question_num != last_qnum) {
+            Display_UpdateQuestionNum(scan.question_num);
+            Display_UpdateSentFlag(0);
+            last_qnum = scan.question_num;
+        }
+    }
 
-    Display_UpdateAngles(
-        last_key_display, scan.question_num,
-        scan.start_flag, scan.scan,
-        0, 0, 0, 0);
-    Display_UpdateCoords(x0, y0, x1, y1, x2, y2, x3, y3);
+    /* --- KEY2 按下 → 发送题号给视觉, ID23 置 1 --- */
+    if (scan.send_question) {
+        Vision_SendQuestion(scan.question_num);
+        Vision_Reset();
+        Display_UpdateSentFlag(1);
+        scan.send_question = 0;   /* 消费标志 */
+    }
+
+    /* --- 视觉数据就绪 → 更新串口屏 --- */
+    if (Vision_DataReady()) {
+        VisionData_t d;
+        Vision_GetData(&d);
+
+        Display_UpdateAngles(d.angles[0], d.angles[1],
+                             d.angles[2], d.angles[3]);
+        Display_UpdateCoords(d.xs[0], d.ys[0],
+                             d.xs[1], d.ys[1],
+                             d.xs[2], d.ys[2],
+                             d.xs[3], d.ys[3]);
+        Display_UpdateRxCount(Vision_GetRxCount());
+    }
   }
   /* USER CODE END 3 */
 }
@@ -497,7 +522,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 230400;
+  huart3.Init.BaudRate = 115200;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
