@@ -59,16 +59,20 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define Limit2_Switch_Pin GPIO_PIN_7
+#define Limit2_Switch_GPIO_Port GPIOA
 #define MOTOR1_DIR_Pin GPIO_PIN_0
 #define MOTOR1_DIR_GPIO_Port GPIOB
-#define Limit_Switch_Pin GPIO_PIN_2
-#define Limit_Switch_GPIO_Port GPIOB
+#define Limit1_Switch_Pin GPIO_PIN_2
+#define Limit1_Switch_GPIO_Port GPIOB
 #define KEY1_Pin GPIO_PIN_12
 #define KEY1_GPIO_Port GPIOB
 #define KEY2_Pin GPIO_PIN_13
 #define KEY2_GPIO_Port GPIOB
 #define KEY3_Pin GPIO_PIN_15
 #define KEY3_GPIO_Port GPIOB
+#define Limit3_Switch_Pin GPIO_PIN_2
+#define Limit3_Switch_GPIO_Port GPIOD
 #define MOTOR2_DIR_Pin GPIO_PIN_3
 #define MOTOR2_DIR_GPIO_Port GPIOB
 

@@ -118,20 +118,26 @@ int main(void)
   /* --- 电机1: TIM3_CH1(PA6), DIR=PB0 --- */
   Stepper_Init(&motor1, &htim3, TIM_CHANNEL_1,
                GPIOB, MOTOR1_DIR_Pin, NULL, 0,
-               GPIOB, Limit_Switch_Pin);
+               GPIOB, Limit1_Switch_Pin);
 
   /* --- 电机2: TIM2_CH1(PA0), DIR=PB3 --- */
   Stepper_Init(&motor2, &htim2, TIM_CHANNEL_1,
                GPIOB, MOTOR2_DIR_Pin, NULL, 0,
                NULL, 0);
 
-  /* --- 电机测试: 正转2圈 → 反转2圈 --- */
-  Stepper_MoveRel(&motor1, 3200, 60);
-  Stepper_MoveRel(&motor2, 3200, 60);
-  HAL_Delay(4000);
-  Stepper_MoveRel(&motor1, -3200, 60);
-  Stepper_MoveRel(&motor2, -3200, 60);
-
+  /* --- 电机1: 正转碰Limit3 → 反转, 碰Limit1 → 停 --- */
+  Stepper_SetSpeed(&motor1, 90);
+  while (HAL_GPIO_ReadPin(Limit3_Switch_GPIO_Port, Limit3_Switch_Pin) != GPIO_PIN_RESET) {
+      HAL_Delay(1);                                              /* 等 Limit3 变低 */
+  }
+  Stepper_Stop(&motor1);
+  HAL_Delay(100);
+  Stepper_SetSpeed(&motor1, -90);
+  while (HAL_GPIO_ReadPin(Limit1_Switch_GPIO_Port, Limit1_Switch_Pin) != GPIO_PIN_RESET) {
+      HAL_Delay(1);                                              /* 等 Limit1 变低 */
+  }
+  Stepper_Stop(&motor1);
+ 
   /* --- 舵机测试: ID=1(USART2) + ID=3(USART1) 同方向转3圈 --- */
   Servo_SetUART(&huart2);
   EnableTorque(1, 1); WheelMode(1);
@@ -575,9 +581,16 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, MOTOR1_DIR_Pin|MOTOR2_DIR_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : Limit2_Switch_Pin */
+  GPIO_InitStruct.Pin = Limit2_Switch_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(Limit2_Switch_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : MOTOR1_DIR_Pin MOTOR2_DIR_Pin */
   GPIO_InitStruct.Pin = MOTOR1_DIR_Pin|MOTOR2_DIR_Pin;
@@ -586,11 +599,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : Limit_Switch_Pin KEY1_Pin KEY2_Pin KEY3_Pin */
-  GPIO_InitStruct.Pin = Limit_Switch_Pin|KEY1_Pin|KEY2_Pin|KEY3_Pin;
+  /*Configure GPIO pins : Limit1_Switch_Pin KEY1_Pin KEY2_Pin KEY3_Pin */
+  GPIO_InitStruct.Pin = Limit1_Switch_Pin|KEY1_Pin|KEY2_Pin|KEY3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Limit3_Switch_Pin */
+  GPIO_InitStruct.Pin = Limit3_Switch_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(Limit3_Switch_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
