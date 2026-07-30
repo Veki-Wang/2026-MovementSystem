@@ -122,7 +122,7 @@ int main(void)
 
   /* --- 电机2: TIM2_CH1(PA0), DIR=PB3 --- */
   Stepper_Init(&motor2, &htim2, TIM_CHANNEL_1,
-               GPIOB, MOTOR1_DIRB3_Pin, NULL, 0,
+               GPIOB, MOTOR2_DIR_Pin, NULL, 0,
                NULL, 0);
 
   /* --- 电机测试: 正转2圈 → 反转2圈 --- */
@@ -577,10 +577,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, MOTOR1_DIR_Pin|MOTOR1_ENA_Pin|MOTOR1_DIRB3_Pin|MOTOR1_ENAB4_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, MOTOR1_DIR_Pin|MOTOR2_DIR_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : MOTOR1_DIR_Pin MOTOR1_ENA_Pin MOTOR1_DIRB3_Pin MOTOR1_ENAB4_Pin */
-  GPIO_InitStruct.Pin = MOTOR1_DIR_Pin|MOTOR1_ENA_Pin|MOTOR1_DIRB3_Pin|MOTOR1_ENAB4_Pin;
+  /*Configure GPIO pins : MOTOR1_DIR_Pin MOTOR2_DIR_Pin */
+  GPIO_InitStruct.Pin = MOTOR1_DIR_Pin|MOTOR2_DIR_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
