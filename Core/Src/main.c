@@ -135,12 +135,18 @@ int main(void)
                NULL, 0);
 
   OLED_Init();
+  OLED_Clear();
+  OLED_ShowString(0, 0, "Q:", OLED_8X16);
+  OLED_ShowNum(16, 0, scan.question_num, 1, OLED_8X16);
+  OLED_ShowString(40, 0, "S:0", OLED_8X16);
+  OLED_ShowString(0, 22, "1:", OLED_8X16);
+  OLED_ShowString(0, 44, "2:", OLED_8X16);
+  OLED_Update();
 
-  // Stepper_SetSpeed(&motor1, -30);
-  // while (HAL_GPIO_ReadPin(Limit1_Switch_GPIO_Port, Limit1_Switch_Pin) != GPIO_PIN_RESET)
-  //     HAL_Delay(1);
- /* ② 正向: Limit1 → Limit3, 记脉冲 */
+  /* --- 电机1 测试: 往返 2 圈, 60 RPM --- */
   motor1.position = 0;
+  Stepper_MoveRel(&motor2,  -3200, 150);   /* 正转 2 圈 (1600×2) */
+  Stepper_MoveRel(&motor1, 3200, 150);
 
   /* --- 视觉通讯 --- */
   Vision_Init();
@@ -155,17 +161,36 @@ int main(void)
     /* USER CODE BEGIN 3 */
     Key_Scan();
 
-    
+    /* --- OLED 实时显示: 题号 / 状态 / 双电机脉冲 --- */
+    {
+        static int32_t last_pos1 = 0, last_pos2 = 0;
+        static int16_t last_qnum = 0;
+        static uint8_t  last_state = 0;
 
+        if (motor1.position   != last_pos1  ||
+            motor2.position   != last_pos2  ||
+            scan.question_num != last_qnum  ||
+            scan.state        != last_state)
+        {
             OLED_ShowString(0, 0, "Q:", OLED_8X16);
             OLED_ShowNum(16, 0, scan.question_num, 1, OLED_8X16);
             OLED_ShowString(40, 0, "S:", OLED_8X16);
             OLED_ShowNum(56, 0, scan.state, 1, OLED_8X16);
 
-            OLED_ShowString(0, 24, "P:", OLED_8X16);
-            OLED_ShowSignedNum(16, 24, motor1.position, 8, OLED_8X16);
+            OLED_ShowString(0, 22, "1:", OLED_8X16);
+            OLED_ShowSignedNum(16, 22, motor1.position, 8, OLED_8X16);
+
+            OLED_ShowString(0, 44, "2:", OLED_8X16);
+            OLED_ShowSignedNum(16, 44, motor2.position, 8, OLED_8X16);
 
             OLED_Update();
+
+            last_pos1  = motor1.position;
+            last_pos2  = motor2.position;
+            last_qnum  = scan.question_num;
+            last_state = scan.state;
+        }
+    }
     
 
     /* --- 题号变化 → 更新串口屏 + 复位视觉 --- */
