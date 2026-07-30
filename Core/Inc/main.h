@@ -75,6 +75,8 @@ void Error_Handler(void);
 #define Limit3_Switch_GPIO_Port GPIOD
 #define MOTOR2_DIR_Pin GPIO_PIN_3
 #define MOTOR2_DIR_GPIO_Port GPIOB
+#define BUZZER_Pin GPIO_PIN_8
+#define BUZZER_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 extern UART_HandleTypeDef huart4;

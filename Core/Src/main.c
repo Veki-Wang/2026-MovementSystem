@@ -74,7 +74,8 @@ static void MX_USART3_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+#define BEEP_ON()   HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_RESET)   // 低电平触发
+#define BEEP_OFF()  HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_SET)
 /* USER CODE END 0 */
 
 /**
@@ -126,13 +127,17 @@ int main(void)
   Stepper_Init(&motor2, &htim2, TIM_CHANNEL_1,
                GPIOB, MOTOR2_DIR_Pin, NULL, 0,
                NULL, 0);
+  /* --- 蜂鸣器测试: 响3声 --- */
+  for (int i = 0; i < 3; i++) {
+      BEEP_ON();  HAL_Delay(200);
+      BEEP_OFF(); HAL_Delay(200);
+  }
+
   /* --- 丢步检测: Limit1→Limit3 再回到 Limit1, 正反脉冲差 = 丢步 --- */
   /* ① 先慢速退回 Limit1 确保起点一致 */
   Stepper_SetSpeed(&motor1, -30);
   while (HAL_GPIO_ReadPin(Limit1_Switch_GPIO_Port, Limit1_Switch_Pin) != GPIO_PIN_RESET)
-      HAL_Delay(1);
-  Stepper_Stop(&motor1);
-  HAL_Delay(100);
+      HAL_Delay(1);  HAL_Delay(100);
 
   /* ② 正向: Limit1 → Limit3, 记脉冲 */
   motor1.position = 0;
@@ -634,14 +639,17 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, MOTOR1_DIR_Pin|MOTOR2_DIR_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_SET);
+
   /*Configure GPIO pin : Limit2_Switch_Pin */
   GPIO_InitStruct.Pin = Limit2_Switch_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(Limit2_Switch_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : MOTOR1_DIR_Pin MOTOR2_DIR_Pin */
-  GPIO_InitStruct.Pin = MOTOR1_DIR_Pin|MOTOR2_DIR_Pin;
+  /*Configure GPIO pins : MOTOR1_DIR_Pin MOTOR2_DIR_Pin BUZZER_Pin */
+  GPIO_InitStruct.Pin = MOTOR1_DIR_Pin|MOTOR2_DIR_Pin|BUZZER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -660,6 +668,11 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(Limit3_Switch_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
+  GPIO_InitStruct.Pin = BUZZER_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(BUZZER_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE END MX_GPIO_Init_2 */
 }
