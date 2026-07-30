@@ -27,6 +27,7 @@
 #include "task_key.h"
 #include "vision.h"
 #include "uart.h"
+#include "OLED.h"
 #include <stdio.h>
 /* USER CODE END Includes */
 
@@ -46,6 +47,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c2;
+
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 
@@ -68,6 +71,7 @@ static void MX_UART4_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_I2C2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -113,6 +117,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
   MX_USART3_UART_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
   /* --- 显示 --- */
   Display_Init();
@@ -132,6 +137,30 @@ int main(void)
       BEEP_ON();  HAL_Delay(200);
       BEEP_OFF(); HAL_Delay(200);
   }
+
+  /* --- OLED 测试 (I2C2, 0.96寸 128x64) --- */
+  OLED_Init();
+  OLED_Clear();
+
+  /* 第1行: 标题 */
+  OLED_ShowString(0, 0, "OLED Test", OLED_8X16);
+
+  /* 第2行: 画一条横线 */
+  OLED_DrawLine(0, 18, 127, 18);
+
+  /* 第3行: 显示数字 */
+  OLED_ShowString(0, 22, "Num:", OLED_6X8);
+  OLED_ShowNum(48, 22, 12345, 5, OLED_6X8);
+
+  /* 第4行: 浮点数 */
+  OLED_ShowString(0, 32, "Val:", OLED_6X8);
+  OLED_ShowFloatNum(30, 32, 3.14, 1, 2, OLED_6X8);
+
+  /* 第5行: 矩形框 */
+  OLED_DrawRectangle(0, 42, 60, 20, OLED_UNFILLED);
+  OLED_ShowString(65, 44, "OK!", OLED_8X16);
+
+  OLED_Update();
 
   /* --- 丢步检测: Limit1→Limit3 再回到 Limit1, 正反脉冲差 = 丢步 --- */
   /* ① 先慢速退回 Limit1 确保起点一致 */
@@ -305,6 +334,54 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C2_Init(void)
+{
+
+  /* USER CODE BEGIN I2C2_Init 0 */
+
+  /* USER CODE END I2C2_Init 0 */
+
+  /* USER CODE BEGIN I2C2_Init 1 */
+
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.Timing = 0x40B285C2;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C2_Init 2 */
+
+  /* USER CODE END I2C2_Init 2 */
+
 }
 
 /**
@@ -632,8 +709,8 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
