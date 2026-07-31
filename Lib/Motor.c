@@ -15,20 +15,24 @@ void Stepper_Init(StepperMotor *motor, TIM_HandleTypeDef *htim, uint32_t channel
     motor->dir_pin     = dir_pin;
     motor->ena_port    = ena_port;
     motor->ena_pin     = ena_pin;
-    motor->limit_port  = limit_port;
-    motor->limit_pin   = limit_pin;
+    motor->limit_port   = limit_port;
+    motor->limit_pin    = limit_pin;
+    motor->limit2_port  = NULL;
+    motor->limit2_pin   = 0;
 
-    motor->position    = 0;
-    motor->target      = 0;
-    motor->steps_to_go = 0;
-    motor->ccr_step    = 0;
-    motor->running     = 0;
-    motor->dir         = 1;
-    motor->edge_toggle = 0;
-    motor->homing      = 0;
-    motor->homed       = 0;
-    motor->soft_min    = 0;
-    motor->soft_max    = 0;
+    motor->position     = 0;
+    motor->target       = 0;
+    motor->steps_to_go  = 0;
+    motor->remaining    = 0;
+    motor->ccr_step     = 0;
+    motor->running      = 0;
+    motor->dir          = 1;
+    motor->edge_toggle  = 0;
+    motor->homing       = 0;
+    motor->homed        = 0;
+    motor->limit_enabled = 0;
+    motor->soft_min     = 0;
+    motor->soft_max     = 0;
 
     TIM_OC_InitTypeDef sConfigOC = {0};
 
@@ -52,7 +56,8 @@ void Stepper_Init(StepperMotor *motor, TIM_HandleTypeDef *htim, uint32_t channel
 #define _DIR_CCW(m)    HAL_GPIO_WritePin((m)->dir_port, (m)->dir_pin, GPIO_PIN_RESET)
 #define _ENA_ON(m)     do { if ((m)->ena_port) HAL_GPIO_WritePin((m)->ena_port, (m)->ena_pin, GPIO_PIN_RESET); } while(0)
 #define _ENA_OFF(m)    do { if ((m)->ena_port) HAL_GPIO_WritePin((m)->ena_port, (m)->ena_pin, GPIO_PIN_SET); } while(0)
-#define _LIMIT_HIT(m)  (HAL_GPIO_ReadPin((m)->limit_port, (m)->limit_pin) == GPIO_PIN_RESET)
+#define _LIMIT_HIT(m)   (HAL_GPIO_ReadPin((m)->limit_port,  (m)->limit_pin)  == GPIO_PIN_RESET)
+#define _LIMIT2_HIT(m)  (HAL_GPIO_ReadPin((m)->limit2_port, (m)->limit2_pin) == GPIO_PIN_RESET)
 
 /* ============================================================
  * 设置速度 — 连续恒速
@@ -179,6 +184,33 @@ void Stepper_Home(StepperMotor *motor, float speed_rpm)
 }
 
 /* ============================================================
+ * 设置第二限位开关 (正方向)
+ * ============================================================ */
+void Stepper_SetLimit2(StepperMotor *motor, GPIO_TypeDef *port, uint16_t pin)
+{
+    motor->limit2_port = port;
+    motor->limit2_pin  = pin;
+}
+
+/* ============================================================
+ * 带限幅保护的相对移动
+ * ============================================================ */
+void Stepper_MoveRel_Limit(StepperMotor *motor, int32_t pulses, float rpm)
+{
+    motor->limit_enabled = 1;
+    motor->remaining     = 0;
+    Stepper_MoveRel(motor, pulses, rpm);
+}
+
+/* ============================================================
+ * 获取限幅触发时剩余脉冲数
+ * ============================================================ */
+int32_t Stepper_GetRemaining(StepperMotor *motor)
+{
+    return motor->remaining;
+}
+
+/* ============================================================
  * 设置软限位
  * ============================================================ */
 void Stepper_SetSoftLimit(StepperMotor *motor, int32_t min, int32_t max)
@@ -200,12 +232,33 @@ void Stepper_IRQHandler(StepperMotor *motor)
     motor->edge_toggle &= 1;
 
     if (motor->edge_toggle == 1) {
-        /* 回零检测 */
-        if (motor->homing && _LIMIT_HIT(motor)) {
+        /* ── 限位1 (负方向) ── */
+        if (motor->limit_port != NULL && _LIMIT_HIT(motor)) {
+            int32_t saved = motor->steps_to_go;
             Stepper_Stop(motor);
-            motor->position = 0;
-            motor->homed    = 1;
-            motor->homing   = 0;
+            if (motor->homing) {
+                motor->position = 0;
+                motor->homed    = 1;
+                motor->homing   = 0;
+            } else if (motor->limit_enabled) {
+                motor->remaining     = saved;
+                motor->limit_enabled = 0;
+            } else {
+                motor->position = 0;
+            }
+            return;
+        }
+
+        /* ── 限位2 (正方向) ── */
+        if (motor->limit2_port != NULL && _LIMIT2_HIT(motor)) {
+            int32_t saved = motor->steps_to_go;
+            Stepper_Stop(motor);
+            if (motor->limit_enabled) {
+                motor->remaining     = saved;
+                motor->limit_enabled = 0;
+            } else {
+                motor->position = 0;
+            }
             return;
         }
 

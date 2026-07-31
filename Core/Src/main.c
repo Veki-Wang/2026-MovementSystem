@@ -128,11 +128,12 @@ int main(void)
   Stepper_Init(&motor1, &htim3, TIM_CHANNEL_1,
                GPIOB, MOTOR1_DIR_Pin, NULL, 0,
                GPIOB, Limit1_Switch_Pin);
+  Stepper_SetLimit2(&motor1, GPIOD, Limit3_Switch_Pin);
 
   /* --- 电机2: TIM2_CH1(PA0), DIR=PB3 --- */
   Stepper_Init(&motor2, &htim2, TIM_CHANNEL_1,
                GPIOB, MOTOR2_DIR_Pin, NULL, 0,
-               NULL, 0);
+               GPIOA, Limit2_Switch_Pin);
 
   OLED_Init();
   OLED_Clear();
@@ -143,11 +144,42 @@ int main(void)
   OLED_ShowString(0, 44, "2:", OLED_8X16);
   OLED_Update();
 
-  /* --- 电机1 测试: 往返 2 圈, 60 RPM --- */
+  // Stepper_SetSpeed(&motor1, -150);
+  // while (HAL_GPIO_ReadPin(Limit1_Switch_GPIO_Port, Limit1_Switch_Pin) != GPIO_PIN_RESET) {
+  //     HAL_Delay(1);                                              /* 等 Limit1 变低 */
+  // }
+  // Stepper_Stop(&motor1);  
+  // /* --- 电机初始化 --- */
   motor1.position = 0;
-  Stepper_MoveRel(&motor2,  -3200, 150);   /* 正转 2 圈 (1600×2) */
-  Stepper_MoveRel(&motor1, 3200, 150);
+  motor2.position = 0;
 
+  Stepper_MoveRel_Limit(&motor1, -3000, 60);
+  while (motor1.running) {
+      OLED_ShowString(0, 22, "1:", OLED_8X16);
+      OLED_ShowSignedNum(16, 22, motor1.position, 8, OLED_8X16);
+      OLED_Update();
+      HAL_Delay(1);
+  }
+  if (motor1.remaining > 0) {
+      OLED_ShowString(0, 22, "Full:", OLED_8X16);
+      OLED_ShowSignedNum(40, 22, motor1.remaining, 8, OLED_8X16);
+      OLED_Update();
+      HAL_Delay(2000);
+  }
+
+  Stepper_MoveRel_Limit(&motor2, -3000, 60);
+  while (motor2.running) {
+      OLED_ShowString(0, 44, "2:", OLED_8X16);
+      OLED_ShowSignedNum(16, 44, motor2.position, 8, OLED_8X16);
+      OLED_Update();
+      HAL_Delay(1);
+  }
+  if (motor2.remaining > 0) {
+      OLED_ShowString(0, 44, "Full:", OLED_8X16);
+      OLED_ShowSignedNum(40, 44, motor2.remaining, 8, OLED_8X16);
+      OLED_Update();
+      HAL_Delay(2000);
+  }
   /* --- 视觉通讯 --- */
   Vision_Init();
   /* USER CODE END 2 */

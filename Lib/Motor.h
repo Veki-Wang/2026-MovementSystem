@@ -32,12 +32,15 @@ typedef struct {
     uint16_t             dir_pin;
     GPIO_TypeDef        *ena_port;
     uint16_t             ena_pin;
-    GPIO_TypeDef        *limit_port;
+    GPIO_TypeDef        *limit_port;       /* 负方向限位 */
     uint16_t             limit_pin;
+    GPIO_TypeDef        *limit2_port;      /* 正方向限位 */
+    uint16_t             limit2_pin;
 
     volatile int32_t     position;
     int32_t              target;
     int32_t              steps_to_go;
+    int32_t              remaining;         /* 限幅触发时剩余脉冲数 */
 
     uint32_t             ccr_step;
     uint8_t              edge_toggle;
@@ -45,6 +48,7 @@ typedef struct {
     uint8_t              dir;
     uint8_t              homing;
     uint8_t              homed;
+    uint8_t              limit_enabled;     /* 限幅保护使能 */
     int32_t              soft_min;
     int32_t              soft_max;
 } StepperMotor;
@@ -60,6 +64,9 @@ void Stepper_Stop(StepperMotor *motor);
 uint8_t Stepper_IsDone(StepperMotor *motor);
 uint8_t Stepper_IsHomed(StepperMotor *motor);
 void Stepper_Home(StepperMotor *motor, float speed_rpm);
+void Stepper_SetLimit2(StepperMotor *motor, GPIO_TypeDef *port, uint16_t pin);
+void Stepper_MoveRel_Limit(StepperMotor *motor, int32_t pulses, float rpm);
+int32_t Stepper_GetRemaining(StepperMotor *motor);
 void Stepper_SetSoftLimit(StepperMotor *motor, int32_t min, int32_t max);
 void Stepper_IRQHandler(StepperMotor *motor);
 
