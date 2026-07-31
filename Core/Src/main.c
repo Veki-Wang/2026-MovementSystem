@@ -140,8 +140,8 @@ int main(void)
   OLED_ShowString(0, 0, "Q:", OLED_8X16);
   OLED_ShowNum(16, 0, scan.question_num, 1, OLED_8X16);
   OLED_ShowString(40, 0, "S:0", OLED_8X16);
-  OLED_ShowString(0, 22, "1:", OLED_8X16);
-  OLED_ShowString(0, 44, "2:", OLED_8X16);
+  OLED_ShowString(0, 16, "1:", OLED_8X16);
+  OLED_ShowString(0, 32, "2:", OLED_8X16);
   OLED_Update();
 
   // Stepper_SetSpeed(&motor1, -150);
@@ -153,33 +153,51 @@ int main(void)
   motor1.position = 0;
   motor2.position = 0;
 
-  Stepper_MoveRel_Limit(&motor1, -3000, 60);
-  while (motor1.running) {
-      OLED_ShowString(0, 22, "1:", OLED_8X16);
-      OLED_ShowSignedNum(16, 22, motor1.position, 8, OLED_8X16);
-      OLED_Update();
-      HAL_Delay(1);
-  }
-  if (motor1.remaining > 0) {
-      OLED_ShowString(0, 22, "Full:", OLED_8X16);
-      OLED_ShowSignedNum(40, 22, motor1.remaining, 8, OLED_8X16);
-      OLED_Update();
-      HAL_Delay(2000);
-  }
+  // Stepper_MoveRel_Limit(&motor1, -3000, 60);
+  // while (motor1.running) {
+  //     OLED_ShowString(0, 16, "1:", OLED_8X16);
+  //     OLED_ShowSignedNum(16, 22, motor1.position, 8, OLED_8X16);
+  //     OLED_Update();
+  //     HAL_Delay(1);
+  // }
+  // if (motor1.remaining > 0) {
+  //     OLED_ShowString(0, 16, "Full:", OLED_8X16);
+  //     OLED_ShowSignedNum(40, 22, motor1.remaining, 8, OLED_8X16);
+  //     OLED_Update();
+  //     HAL_Delay(2000);
+  // }
 
-  Stepper_MoveRel_Limit(&motor2, -3000, 60);
-  while (motor2.running) {
-      OLED_ShowString(0, 44, "2:", OLED_8X16);
-      OLED_ShowSignedNum(16, 44, motor2.position, 8, OLED_8X16);
-      OLED_Update();
-      HAL_Delay(1);
-  }
-  if (motor2.remaining > 0) {
-      OLED_ShowString(0, 44, "Full:", OLED_8X16);
-      OLED_ShowSignedNum(40, 44, motor2.remaining, 8, OLED_8X16);
-      OLED_Update();
-      HAL_Delay(2000);
-  }
+  // Stepper_MoveRel_Limit(&motor2, -3000, 60);
+  // while (motor2.running) {
+  //     OLED_ShowString(0, 32, "2:", OLED_8X16);
+  //     OLED_ShowSignedNum(16, 44, motor2.position, 8, OLED_8X16);
+  //     OLED_Update();
+  //     HAL_Delay(1);
+  // }
+  // if (motor2.remaining > 0) {
+  //     OLED_ShowString(0, 32, "Full:", OLED_8X16);
+  //     OLED_ShowSignedNum(40, 44, motor2.remaining, 8, OLED_8X16);
+  //     OLED_Update();
+  //     HAL_Delay(2000);
+  // }
+  /* --- 舵机多圈测试: 解锁角度限制, 直接跨圈 --- */
+  Servo_SetUART(&huart2);
+  EnableTorque(1, 1);
+  HAL_Delay(100);
+
+  /* 解除角度限制 (使能多圈模式) */
+  unLockEprom(1);
+  writeWord(1, SMS_STS_MIN_ANGLE_LIMIT_L, 0);
+  writeWord(1, SMS_STS_MAX_ANGLE_LIMIT_L, 0);
+  LockEprom(1);
+  HAL_Delay(50);
+
+  /* 先到 0 */
+///WritePosEx(1, 0, 90, 0);
+
+  /* 往前走 5000 步: WritePosEx 直接传负值, 舵机会跨圈走过去 */
+  WritePosEx(1, -6300, 90, 0);
+
   /* --- 视觉通讯 --- */
   Vision_Init();
   /* USER CODE END 2 */
@@ -209,11 +227,11 @@ int main(void)
             OLED_ShowString(40, 0, "S:", OLED_8X16);
             OLED_ShowNum(56, 0, scan.state, 1, OLED_8X16);
 
-            OLED_ShowString(0, 22, "1:", OLED_8X16);
-            OLED_ShowSignedNum(16, 22, motor1.position, 8, OLED_8X16);
+            OLED_ShowString(0, 16, "1:", OLED_8X16);
+            OLED_ShowSignedNum(16, 16, motor1.position, 8, OLED_8X16);
 
-            OLED_ShowString(0, 44, "2:", OLED_8X16);
-            OLED_ShowSignedNum(16, 44, motor2.position, 8, OLED_8X16);
+            OLED_ShowString(0, 32, "2:", OLED_8X16);
+            OLED_ShowSignedNum(16, 32, motor2.position, 8, OLED_8X16);
 
             OLED_Update();
 
@@ -223,7 +241,6 @@ int main(void)
             last_state = scan.state;
         }
     }
-    
 
     /* --- 题号变化 → 更新串口屏 + 复位视觉 --- */
     {
